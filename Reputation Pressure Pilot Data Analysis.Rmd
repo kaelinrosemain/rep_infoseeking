@@ -1,0 +1,88 @@
+---
+title: "Reputational Pressure Pilot Data Analysis"
+author: "Kaelin Main"
+date: "2026-07-14"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries}
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(viridis)
+```
+
+
+```{r read-data}
+data <- read_excel("pilot_data/rep_pressure_deidentified.xlsx")
+```
+
+```{r clean-data}
+data <- data %>% 
+  mutate(condition_binary = if_else(condition == "high rep pressure", 1, 0)) %>%
+  mutate(trialfirst_binary = if_else(`trial first` == "high", 1, 0)) %>% 
+  rename(choice = `choice combination code`) %>% 
+  mutate(choice = as.factor(choice))
+```
+
+```{r plot}
+  ggplot(data, aes(fill = choice, x = condition)) +
+    geom_bar(position = "fill", width = 0.6) +
+    labs(x = "Condition",
+         y = " ") +
+    scale_x_discrete(labels = c("High reputational pressure", "Low reputational pressure")) +
+    scale_fill_discrete(
+      labels = c("Book for both questions",
+                 "Toy for both questions",
+                 "Book for low certainty, toy for high certainty",
+                 "Toy for low certainty, book for high certainty"),
+      name = "Choice"
+    ) +
+    theme_minimal(base_size = 11)
+
+  ggplot(data, aes(fill = choice, x = condition)) +
+    geom_bar(position = "dodge", width = 0.6) +
+    labs(x = "Condition",
+         y = "Count") +
+    scale_x_discrete(labels = c("High reputational pressure", "Low reputational pressure")) +
+    scale_fill_discrete(
+      labels = c("Book for both questions",
+                 "Toy for both questions",
+                 "Book for low certainty, toy for high certainty",
+                 "Toy for low certainty, book for high certainty"),
+      name = "Choice"
+    ) +
+    theme_minimal(base_size = 12)
+```
+
+```{r plot-wrapped}
+
+data <- data %>% 
+  mutate(trialfirst_binary = as.factor(trialfirst_binary)) %>%
+  mutate(condition_binary = as.factor(condition_binary))
+
+  ggplot(data, aes(x = trialfirst_binary, fill = choice)) +
+    geom_bar(position = "dodge", width = 0.6) + 
+    facet_wrap(~condition_binary, labeller = as_labeller(c(
+      "0" = "Low reputational pressure",
+      "1" = "High reputational pressure"
+    ))) +
+    labs(x = "Trial order",
+         y = "Count") +
+    scale_x_discrete(labels = c("Low cert first", "High cert first")) +
+    scale_fill_discrete(
+      labels = c("Book for both questions",
+                 "Toy for both questions",
+                 "Book for low certainty, toy for high certainty",
+                 "Toy for low certainty, book for high certainty"),
+      name = "Choice"
+    ) 
+    
+
+```
+
