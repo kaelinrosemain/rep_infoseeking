@@ -19,7 +19,7 @@ library(viridis)
 
 
 ```{r read-data}
-data <- read_excel("pilot_data/rep_pressure_deidentified.xlsx")
+data <- read_excel("pilot_data/rep_pressure_simplified.xlsx")
 ```
 
 ```{r clean-data}
@@ -29,6 +29,25 @@ data <- data %>%
   rename(choice = `choice combination code`) %>% 
   mutate(choice = as.factor(choice))
 ```
+
+```{r}
+data <- data %>%
+  mutate(
+    hc_choice = case_when(
+      choice == 1 ~ "book",
+      choice == 2 ~ "toy",
+      choice == 3 ~ "toy",
+      choice == 4 ~ "book"
+    ),
+    lc_choice = case_when(
+      choice == 1 ~ "book",
+      choice == 2 ~ "toy",
+      choice == 3 ~ "book",
+      choice == 4 ~ "toy"
+    )
+  )
+```
+
 
 ```{r plot}
   ggplot(data, aes(fill = choice, x = condition)) +
@@ -85,4 +104,52 @@ data <- data %>%
     
 
 ```
+
+```{r make-prop-data-set}
+
+data_high <- data %>% filter(condition_binary == 1)  # high reputational pressure
+data_low  <- data %>% filter(condition_binary == 0)  # low reputational pressure
+
+prop_high <- data_high %>%
+  summarise(
+    hc = mean(hc_choice == "book"),
+    lc = mean(lc_choice == "book")
+  ) %>%
+  pivot_longer(cols = c(hc, lc), names_to = "choice_type", values_to = "prop_book") %>%
+  mutate(condition = "high")
+
+prop_low <- data_low %>%
+  summarise(
+    hc = mean(hc_choice == "book"),
+    lc = mean(lc_choice == "book")
+  ) %>%
+  pivot_longer(cols = c(hc, lc), names_to = "choice_type", values_to = "prop_book") %>%
+  mutate(condition = "low")
+
+prop_data <- bind_rows(prop_high, prop_low)
+```
+
+
+```{r}
+prop_data_seg <- prop_data %>%
+  mutate(prop_toy = 1 - prop_book) %>%
+  pivot_longer(cols = c(prop_book, prop_toy), names_to = "response", values_to = "proportion") %>%
+  mutate(response = recode(response, prop_book = "book", prop_toy = "toy"))
+
+ggplot(prop_data_seg, aes(x = choice_type, y = proportion, fill = response)) +
+  geom_col() +
+  facet_wrap(
+    ~ condition,
+    labeller = as_labeller(c(high = "High Rep Pressure", low = "Low Rep Pressure"))
+  ) +
+  scale_y_continuous(breaks = c(0, 1), labels = c("toy", "book")) +
+  labs(x = "Choice type", y = NULL) +
+  theme_bw() + 
+  theme(legend.position = "none")
+```
+```{r modelling}
+model1 <- lm(lc_choice ~ condition_binary, data = data)
+```
+
+
 

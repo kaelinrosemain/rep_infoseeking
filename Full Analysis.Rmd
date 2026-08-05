@@ -1,0 +1,120 @@
+---
+title: "Analysis (by trial)"
+author: "Kaelin Main"
+date: "2026-08-04"
+output: pdf_document
+---
+
+```{r libraries}
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(broom)
+library(broom.mixed)
+library(lme4)
+```
+
+```{r read-data}
+data_full <- read_excel("pilot_data/rep_pressure_coding.xlsx")
+```
+
+```{r}
+filtered_data <- data_full %>%
+  filter(
+    participant >= 15,
+    excluded != 1 | is.na(excluded),
+    choice %in% c("book", "other")
+    )
+```
+
+```{r binary}
+filtered_data <- filtered_data %>%
+  mutate(choice_binary = if_else(choice == "book", 1, 0))
+```
+
+```{r}
+model <- glmer(choice_binary ~ certainty * condition + (1 | participant_id),
+               data = filtered_data,
+               family = binomial)
+```
+
+```{r}
+tidy(model, effects = "fixed", conf.int = TRUE, exponentiate = TRUE)
+```
+```{r}
+data_highrep <- filtered_data %>% 
+  filter(condition == "high rep pressure")
+
+data_lowrep <- filtered_data %>% 
+  filter(condition == "low rep pressure")
+```
+
+```{r}
+model_high <- glmer(choice_binary ~ certainty + (1 | participant_id),
+               data = data_highrep,
+               family = binomial)
+
+tidy(model_high, effects = "fixed", conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+model_low <- glmer(choice_binary ~ certainty + (1 | participant_id),
+               data = data_lowrep,
+               family = binomial)
+
+tidy(model_low, effects = "fixed", conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r graph-updated}
+summary_data <- filtered_data %>%
+  group_by(condition, certainty) %>%
+  summarise(pct_book = mean(choice_binary) * 100, .groups = "drop")
+
+ggplot() +
+  geom_col(data = summary_data,
+            aes(x = certainty, y = pct_book, fill = certainty),
+            color = "black", width = 0.9) +
+  geom_text(data = summary_data,
+             aes(x = certainty, 
+                 y = pct_book, 
+                 label = paste0(round(pct_book), "%")),
+                vjust = -0.5, size = 3.5) +
+  geom_jitter(data = filtered_data,
+               aes(x = certainty, y = choice_binary * 100, color = choice),
+               width = 0.15, height = 2, alpha = 0.5, size = 2) +
+  facet_wrap(~condition) +
+  scale_fill_manual(values = c("high" = "#f4b8c1", "low" = "#f7f7c9")) +
+  scale_color_manual(values = c("book" = "#f4b8c1", "other" = "grey40")) +
+  scale_y_continuous(limits = c(-5, 105), breaks = seq(0, 100, 25),
+                       labels = paste0(seq(0, 100, 25), "%")) +
+  labs(x = "Certainty", y = "Percentage of Children Chose Book",
+        fill = "certainty", color = "choice") +
+  theme_minimal(base_size = 14) +
+  theme(strip.background = element_rect(fill = "grey90"),
+         strip.text = element_text(face = "bold"),
+         panel.grid.major.x = element_blank(),
+         panel.grid.minor = element_blank())
+```
+
+```{r noelles-analysis}
+plot_data <- filtered_data %>%
+  count(condition, certainty, choice) %>%
+  group_by(condition, certainty) %>%
+  mutate(percent = n / sum(n))
+
+
+figure <- ggplot(plot_data, aes(x = certainty,y = percent,fill = choice)) +
+  geom_col(position = position_dodge(width = 0.8),color = "black") +
+  geom_text(aes(label = scales::percent(percent, accuracy = 1)),position = position_dodge(width = 0.8), vjust = -0.3, size = 3) +
+  geom_jitter(data = filtered_data,aes(x = certainty, y = ifelse(choice == "book", 1, 0), color = choice),inherit.aes = FALSE, width = 0.25, height = 0.03, alpha = 0.6, size = 2) +
+  facet_wrap(~ condition) +
+  scale_y_continuous(labels = scales::percent, limits = c(-0.05, 1.05)) +
+  labs(x = "Certainty",y = "Percentage of Children",fill = "Choice") +
+  scale_fill_manual(values = c("book" = "pink", "other" = "lavender")) +
+  scale_color_manual(values = c("book" = "pink", "other" = "lavender")) + 
+  theme_minimal()
+
+figure
+```
+
